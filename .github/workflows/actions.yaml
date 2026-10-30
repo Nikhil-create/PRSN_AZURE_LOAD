@@ -1,0 +1,31 @@
+name: Validate deployment environment
+
+on:
+  workflow_call:
+    inputs:
+      target_environment:
+        description: Deployment environment to validate
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate environment
+        shell: bash
+        env:
+          TARGET_ENVIRONMENT: ${{ inputs.target_environment }}
+        run: |
+          case "$TARGET_ENVIRONMENT" in
+            dev|prod)
+              echo "Deploying to the '$TARGET_ENVIRONMENT' environment."
+              ;;
+            *)
+              echo "::error::Unsupported environment '$TARGET_ENVIRONMENT'. Choose 'dev' or 'prod'."
+              exit 1
+              ;;
+          esac

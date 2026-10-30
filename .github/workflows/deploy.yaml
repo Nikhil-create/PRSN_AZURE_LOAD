@@ -1,0 +1,64 @@
+name: Deploy Azure Databricks notebooks
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "databricks/**"
+      - ".github/workflows/**"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target deployment environment
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+        default: dev
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-databricks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    uses: ./.github/workflows/actions.yaml
+    with:
+      target_environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'prod' }}
+
+  deploy:
+    needs: validate
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'prod' }}
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+      DATABRICKS_TARGET_PATH: /Shared/prsn
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Databricks CLI
+        uses: databricks/setup-cli@v1.23.0
+
+      - name: Deploy notebooks
+        shell: bash
+        run: |
+          if [[ -z "$DATABRICKS_HOST" || -z "$DATABRICKS_TOKEN" ]]; then
+            echo "::error::Set DATABRICKS_HOST and DATABRICKS_TOKEN in GitHub Secrets."
+            exit 1
+          fi
+
+          if [[ ! -d databricks ]] || [[ -z "$(find databricks -type f -print -quit)" ]]; then
+            echo "::error::No notebook files found. Add notebooks under the databricks/ directory."
+            exit 1
+          fi
+
+          databricks workspace import-dir databricks "$DATABRICKS_TARGET_PATH" --overwrite
