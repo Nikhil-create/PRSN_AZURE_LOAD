@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - develop
     paths:
       - "databricks/**"
       - ".github/workflows/**"
@@ -29,13 +30,13 @@ jobs:
   validate:
     uses: ./.github/workflows/actions.yaml
     with:
-      target_environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'prod' }}
+      target_environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || (github.ref_name == 'main' && 'prod' || 'dev') }}
 
   deploy:
     needs: validate
     runs-on: ubuntu-latest
     environment:
-      name: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'prod' }}
+      name: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || (github.ref_name == 'main' && 'prod' || 'dev') }}
     env:
       DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
       DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
